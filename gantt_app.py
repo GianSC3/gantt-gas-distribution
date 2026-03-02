@@ -331,8 +331,6 @@ with st.expander("📦 View deliveries by truck", expanded=False):
                                     lambda x: f"Day {int(x)}" if pd.notna(x) else "-"),
             "Departure Time"    : df_truck["_departure_time"],
             "Arrival Time"      : df_truck["_arrival_time"],
-            "Trip Start (h)"    : df_truck["TripStart"].round(2),
-            "Arrival (h)"       : df_truck["ArrivalCustomer"].round(2),
         }).reset_index(drop=True)
 
         # ── Métricas rápidas del camión seleccionado ──────────────────────────
@@ -347,13 +345,13 @@ with st.expander("📦 View deliveries by truck", expanded=False):
         def color_rows(row):
             day_num = int(row["Delivery Day"].replace("Day ", "")) if "Day" in str(row["Delivery Day"]) else 0
             base_colors = [
-                "background-color: #e3f2fd",   # azul muy suave
-                "background-color: #f3e5f5",   # violeta muy suave
-                "background-color: #e8f5e9",   # verde muy suave
-                "background-color: #fff8e1",   # amarillo muy suave
-                "background-color: #fce4ec",   # rosa muy suave
-                "background-color: #e0f7fa",   # celeste muy suave
-                "background-color: #f9fbe7",   # lima muy suave
+                "background-color: #e3f2fd; color: #1a1a1a",
+                "background-color: #f3e5f5; color: #1a1a1a",
+                "background-color: #e8f5e9; color: #1a1a1a",
+                "background-color: #fff8e1; color: #1a1a1a",
+                "background-color: #fce4ec; color: #1a1a1a",
+                "background-color: #e0f7fa; color: #1a1a1a",
+                "background-color: #f9fbe7; color: #1a1a1a",
             ]
             color = base_colors[(day_num - 1) % len(base_colors)]
             return [color] * len(row)
@@ -415,3 +413,4 @@ col2.metric("Trucks Active",           len(sel_trucks))
 col3.metric("Unique Customers",        deliveries["Customer"].nunique())
 
 col4.metric("Total Amount Delivered",  f"{deliveries['Amount'].sum():.2f}")
+
