@@ -326,7 +326,7 @@ with st.expander("📦 View deliveries by truck", expanded=False):
             "Route"             : df_truck["Route"].astype(int),
             "Customer"          : df_truck["Customer"].apply(
                                     lambda x: f"Customer {x}"),
-            "Amount Delivered"  : df_truck["Amount"].round(4),
+            "Amount Delivered [Trucks]"  : df_truck["Amount"].round(4),
             "Delivery Day"      : df_truck["_arr_day"].apply(
                                     lambda x: f"Day {int(x)}" if pd.notna(x) else "-"),
             "Departure Time"    : df_truck["_departure_time"],
@@ -413,4 +413,5 @@ col2.metric("Trucks Active",           len(sel_trucks))
 col3.metric("Unique Customers",        deliveries["Customer"].nunique())
 
 col4.metric("Total Amount Delivered",  f"{deliveries['Amount'].sum():.2f}")
+
 
