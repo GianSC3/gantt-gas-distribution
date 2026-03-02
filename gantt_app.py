@@ -276,6 +276,132 @@ config = dict(
 
 st.plotly_chart(fig, use_container_width=True, config=config)
 
+# ── Delivery summary per truck ────────────────────────────────────────────────
+st.markdown("---")
+st.subheader("🚚 Delivery Summary by Truck")
+
+with st.expander("📦 View deliveries by truck", expanded=False):
+
+    # Selector de camión
+    truck_options = sorted(df_f["Truck"].dropna().unique().astype(int).tolist())
+    selected_truck = st.selectbox(
+        "Select Truck",
+        options=truck_options,
+        format_func=lambda x: f"Truck {x}"
+    )
+
+    # Filtrar solo entregas (sin vueltas a planta)
+    df_truck = df_f[
+        (df_f["Truck"] == selected_truck) &
+        (df_f["Customer"].str.lower() != "plant")
+    ].copy()
+
+    if df_truck.empty:
+        st.info(f"No deliveries found for Truck {selected_truck}.")
+    else:
+        # ── Calcular día y hora del día ───────────────────────────────────────
+        def hours_to_day_and_time(total_hours):
+            """Convierte horas absolutas de simulación a día y hora del día."""
+            if pd.isna(total_hours):
+                return None, None
+            total_hours = max(total_hours, 0)
+            day    = int(total_hours // 24) + 1          # Día 1, 2, 3...
+            h      = int(total_hours % 24)
+            m      = int(round((total_hours % 1) * 60))
+            if m == 60:                                  # redondeo edge case
+                h += 1
+                m  = 0
+            time_str = f"{h:02d}:{m:02d} hs"
+            return day, time_str
+
+        df_truck["_day"],       df_truck["_departure_time"] = zip(
+            *df_truck["TripStart"].apply(hours_to_day_and_time)
+        )
+        df_truck["_arr_day"],   df_truck["_arrival_time"]   = zip(
+            *df_truck["ArrivalCustomer"].apply(hours_to_day_and_time)
+        )
+
+        # ── Armar tabla de presentación ───────────────────────────────────────
+        summary = pd.DataFrame({
+            "Route"             : df_truck["Route"].astype(int),
+            "Customer"          : df_truck["Customer"].apply(
+                                    lambda x: f"Customer {x}"),
+            "Amount Delivered"  : df_truck["Amount"].round(4),
+            "Delivery Day"      : df_truck["_arr_day"].apply(
+                                    lambda x: f"Day {int(x)}" if pd.notna(x) else "-"),
+            "Departure Time"    : df_truck["_departure_time"],
+            "Arrival Time"      : df_truck["_arrival_time"],
+            "Trip Start (h)"    : df_truck["TripStart"].round(2),
+            "Arrival (h)"       : df_truck["ArrivalCustomer"].round(2),
+        }).reset_index(drop=True)
+
+        # ── Métricas rápidas del camión seleccionado ──────────────────────────
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Deliveries",       len(summary))
+        c2.metric("Customers Visited",      summary["Customer"].nunique())
+        c3.metric("Total Amount Delivered", f"{df_truck['Amount'].sum():.4f}")
+
+        st.markdown(f"#### Truck {selected_truck} – Delivery Schedule")
+
+        # ── Tabla con colores alternados por día ──────────────────────────────
+        def color_rows(row):
+            day_num = int(row["Delivery Day"].replace("Day ", "")) if "Day" in str(row["Delivery Day"]) else 0
+            base_colors = [
+                "background-color: #e3f2fd",   # azul muy suave
+                "background-color: #f3e5f5",   # violeta muy suave
+                "background-color: #e8f5e9",   # verde muy suave
+                "background-color: #fff8e1",   # amarillo muy suave
+                "background-color: #fce4ec",   # rosa muy suave
+                "background-color: #e0f7fa",   # celeste muy suave
+                "background-color: #f9fbe7",   # lima muy suave
+            ]
+            color = base_colors[(day_num - 1) % len(base_colors)]
+            return [color] * len(row)
+
+        styled = summary.style.apply(color_rows, axis=1).format({
+            "Amount Delivered" : "{:.4f}",
+            "Trip Start (h)"   : "{:.2f}",
+            "Arrival (h)"      : "{:.2f}",
+        })
+
+        st.dataframe(styled, use_container_width=True, hide_index=True)
+
+        # ── Mini gráfico de barras: cantidad entregada por cliente ────────────
+        st.markdown("##### Amount Delivered per Customer")
+        bar_data = (
+            df_truck.groupby("Customer")["Amount"]
+            .sum()
+            .reset_index()
+            .sort_values("Amount", ascending=False)
+        )
+        bar_data["Customer"] = bar_data["Customer"].apply(lambda x: f"Customer {x}")
+
+        bar_fig = go.Figure(go.Bar(
+            x=bar_data["Customer"],
+            y=bar_data["Amount"],
+            marker_color=truck_color_delivery[selected_truck],
+            text=bar_data["Amount"].round(3),
+            textposition="outside",
+        ))
+        bar_fig.update_layout(
+            height=300,
+            margin=dict(l=40, r=40, t=30, b=60),
+            plot_bgcolor="#fafafa",
+            paper_bgcolor="white",
+            xaxis=dict(
+                tickfont=dict(color=FONT_COLOR),
+                title=dict(text="Customer", font=dict(color=FONT_COLOR))
+            ),
+            yaxis=dict(
+                tickfont=dict(color=FONT_COLOR),
+                title=dict(text="Total Amount Delivered", font=dict(color=FONT_COLOR)),
+                showgrid=True,
+                gridcolor="#e0e0e0",
+            ),
+            showlegend=False,
+        )
+        st.plotly_chart(bar_fig, use_container_width=True)
+
 # ── Raw data table ────────────────────────────────────────────────────────────
 with st.expander("📋 View raw data table"):
     st.dataframe(df_f.reset_index(drop=True), use_container_width=True)
@@ -287,4 +413,5 @@ deliveries = df_f[df_f["Customer"].str.lower() != "plant"]
 col1.metric("Total Deliveries",        len(deliveries))
 col2.metric("Trucks Active",           len(sel_trucks))
 col3.metric("Unique Customers",        deliveries["Customer"].nunique())
+
 col4.metric("Total Amount Delivered",  f"{deliveries['Amount'].sum():.2f}")
